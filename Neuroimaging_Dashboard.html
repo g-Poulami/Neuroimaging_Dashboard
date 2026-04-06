@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paediatric Brain Tumour Neuroimaging Dashboard | Poulami Ghosh</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a1a2e; }
+
+  .header {
+    background: linear-gradient(135deg, #1F4E79 0%, #2E75B6 100%);
+    color: white; padding: 22px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.3px; }
+  .header p { font-size: 0.78rem; opacity: 0.85; margin-top: 3px; }
+  .header-right { font-size: 0.75rem; opacity: 0.8; text-align: right; }
+
+  .filters {
+    background: white; padding: 12px 32px; display: flex; gap: 24px;
+    align-items: center; border-bottom: 2px solid #e2e8f0;
+    flex-wrap: wrap;
+  }
+  .filters label { font-size: 0.75rem; font-weight: 600; color: #555; margin-right: 6px; }
+  .filters select {
+    border: 1px solid #cbd5e0; border-radius: 4px;
+    padding: 5px 10px; font-size: 0.8rem; color: #333; background: white;
+    cursor: pointer;
+  }
+  .filter-group { display: flex; align-items: center; }
+
+  .kpi-bar {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; padding: 18px 32px; background: #f7fafc;
+  }
+  .kpi {
+    background: white; border-radius: 8px; padding: 16px 20px;
+    border-left: 4px solid #2E75B6;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .kpi.green { border-left-color: #38a169; }
+  .kpi.orange { border-left-color: #dd6b20; }
+  .kpi.purple { border-left-color: #6b46c1; }
+  .kpi-val { font-size: 1.9rem; font-weight: 700; color: #1F4E79; }
+  .kpi.green .kpi-val { color: #276749; }
+  .kpi.orange .kpi-val { color: #9c4221; }
+  .kpi.purple .kpi-val { color: #553c9a; }
+  .kpi-label { font-size: 0.72rem; color: #718096; margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; padding: 0 32px 16px;
+  }
+  .grid-3 {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px; padding: 0 32px 16px;
+  }
+  .card {
+    background: white; border-radius: 8px; padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  .card h3 {
+    font-size: 0.82rem; font-weight: 700; color: #2d3748;
+    margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;
+  }
+  .chart-container { position: relative; height: 220px; }
+  .chart-container.tall { height: 270px; }
+
+  .scatter-wrap { position: relative; height: 240px; }
+
+  .legend-row {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #4a5568; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .footer {
+    background: #1F4E79; color: rgba(255,255,255,0.7);
+    text-align: center; padding: 10px; font-size: 0.72rem;
+  }
+  .footer span { color: white; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  thead tr { background: #EBF4FF; }
+  th { padding: 8px 10px; text-align: left; color: #1F4E79; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f0f4f8; color: #333; }
+  tr:hover td { background: #f7fafc; }
+  .badge { border-radius: 12px; padding: 2px 9px; font-size: 0.69rem; font-weight: 700; }
+  .badge.fav { background: #c6f6d5; color: #276749; }
+  .badge.poor { background: #fed7d7; color: #9b2c2c; }
+  .badge.g1 { background: #c6f6d5; color: #276749; }
+  .badge.g2 { background: #bee3f8; color: #2b6cb0; }
+  .badge.g3 { background: #fefcbf; color: #744210; }
+  .badge.g4 { background: #fed7d7; color: #9b2c2c; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Paediatric Brain Tumour — Neuroimaging Research Dashboard</h1>
+    <p>MRI/MRS Data Analysis · n=120 patients · University of Birmingham / Birmingham Children's Hospital</p>
+  </div>
+  <div class="header-right">
+    Poulami Ghosh<br>MSc Bioinformatics, University of Birmingham<br>poulamighosh738@gmail.com
+  </div>
+</div>
+
+<div class="filters">
+  <span style="font-size:0.78rem;font-weight:700;color:#1F4E79;">FILTERS</span>
+  <div class="filter-group">
+    <label>Grade</label>
+    <select id="gradeFilter" onchange="applyFilters()">
+      <option value="All">All Grades</option>
+      <option value="Grade I">Grade I</option>
+      <option value="Grade II">Grade II</option>
+      <option value="Grade III">Grade III</option>
+      <option value="Grade IV">Grade IV</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Tumour Type</label>
+    <select id="typeFilter" onchange="applyFilters()">
+      <option value="All">All Types</option>
+      <option value="Astrocytoma">Astrocytoma</option>
+      <option value="Medulloblastoma">Medulloblastoma</option>
+      <option value="Ependymoma">Ependymoma</option>
+      <option value="Glioblastoma">Glioblastoma</option>
+      <option value="DIPG">DIPG</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Outcome</label>
+    <select id="outcomeFilter" onchange="applyFilters()">
+      <option value="All">All Outcomes</option>
+      <option value="Favourable">Favourable</option>
+      <option value="Poor">Poor</option>
+    </select>
+  </div>
+  <div style="margin-left:auto;font-size:0.72rem;color:#718096;" id="recordCount">120 patients</div>
+</div>
+
+<div class="kpi-bar" id="kpiBar">
+  <div class="kpi"><div class="kpi-val" id="kpiN">120</div><div class="kpi-label">Total Patients</div></div>
+  <div class="kpi green"><div class="kpi-val" id="kpiFav">—</div><div class="kpi-label">Favourable Outcome</div></div>
+  <div class="kpi orange"><div class="kpi-val" id="kpiSurv">—</div><div class="kpi-label">Median Survival (months)</div></div>
+  <div class="kpi purple"><div class="kpi-val" id="kpiVol">—</div><div class="kpi-label">Mean Tumour Volume (cm³)</div></div>
+</div>
+
+<div class="grid" style="padding-top:16px;">
+  <div class="card">
+    <h3>Tumour Grade Distribution</h3>
+    <div class="chart-container"><canvas id="gradeChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Tumour Type Breakdown</h3>
+    <div class="chart-container"><canvas id="typeChart"></canvas></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>MRS Metabolite Profile by Grade (Mean ± SD)</h3>
+    <div class="chart-container"><canvas id="metaboliteChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Cho:NAA Ratio vs Survival — Scatter</h3>
+    <div class="chart-container"><canvas id="scatterChart"></canvas></div>
+  </div>
+</div>
+
+<div class="grid-3">
+  <div class="card">
+    <h3>Survival Distribution by Grade</h3>
+    <div class="chart-container"><canvas id="survivalChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Tumour Volume by Grade</h3>
+    <div class="chart-container"><canvas id="volumeChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Age Distribution</h3>
+    <div class="chart-container"><canvas id="ageChart"></canvas></div>
+  </div>
+</div>
+
+<div style="padding: 0 32px 16px;">
+  <div class="card">
+    <h3>Patient Data Table (top 15 shown)</h3>
+    <div id="tableWrap"></div>
+  </div>
+</div>
+
+<div class="footer">
+  Dashboard created by <span>Poulami Ghosh</span> · MSc Bioinformatics, University of Birmingham ·
+  Data: Simulated/anonymised for portfolio demonstration · Inspired by MRI/MRS research at Birmingham Children's Hospital
+</div>
+
+<script>
+// ── RAW DATA ──────────────────────────────────────────────────────────
+const RAW = [
+  ["PT001",11,"Female","Astrocytoma","Grade II",2.14,2.64,2.01,0.81,15.8,44.1,"Favourable"],
+  ["PT002",8,"Male","Glioblastoma","Grade IV",3.42,1.07,1.96,3.20,21.5,22.4,"Poor"],
+  ["PT003",13,"Male","Ependymoma","Grade III",3.11,1.25,2.03,2.49,35.0,33.5,"Poor"],
+  ["PT004",10,"Female","Astrocytoma","Grade III",2.98,0.98,1.87,3.04,31.9,42.8,"Favourable"],
+  ["PT005",8,"Male","Medulloblastoma","Grade II",1.93,2.48,2.01,0.78,13.8,52.7,"Favourable"],
+  ["PT006",5,"Female","Astrocytoma","Grade I",1.88,2.71,2.09,0.69,6.2,71.3,"Favourable"],
+  ["PT007",14,"Male","Glioblastoma","Grade IV",3.61,0.88,2.11,4.10,38.7,11.2,"Poor"],
+  ["PT008",9,"Female","Medulloblastoma","Grade III",3.05,1.31,1.98,2.33,24.5,28.6,"Poor"],
+  ["PT009",7,"Male","Ependymoma","Grade II",2.05,2.51,1.97,0.82,11.3,49.1,"Favourable"],
+  ["PT010",12,"Female","Astrocytoma","Grade I",1.79,2.68,2.03,0.67,7.8,78.2,"Favourable"],
+  ["PT011",6,"Male","DIPG","Grade IV",3.55,0.92,2.08,3.86,32.1,9.8,"Poor"],
+  ["PT012",11,"Female","Medulloblastoma","Grade II",1.97,2.39,1.99,0.82,14.2,46.8,"Favourable"],
+  ["PT013",15,"Male","Astrocytoma","Grade III",3.19,1.14,2.05,2.80,29.4,31.2,"Poor"],
+  ["PT014",4,"Female","Ependymoma","Grade I",1.84,2.75,2.11,0.67,5.1,82.4,"Favourable"],
+  ["PT015",10,"Male","Glioblastoma","Grade IV",3.48,0.95,1.94,3.66,41.3,13.7,"Poor"],
+  ["PT016",9,"Female","Astrocytoma","Grade II",2.11,2.55,2.00,0.83,12.8,51.3,"Favourable"],
+  ["PT017",13,"Male","Medulloblastoma","Grade III",2.87,1.19,1.96,2.41,27.6,25.4,"Poor"],
+  ["PT018",7,"Female","Astrocytoma","Grade I",1.91,2.82,2.07,0.68,8.3,69.7,"Favourable"],
+  ["PT019",16,"Male","Glioblastoma","Grade IV",3.38,1.02,2.14,3.31,36.2,16.5,"Poor"],
+  ["PT020",8,"Female","Ependymoma","Grade II",2.08,2.44,1.98,0.85,10.7,47.9,"Favourable"],
+  ["PT021",11,"Male","Astrocytoma","Grade III",3.22,1.08,2.01,2.98,30.8,29.1,"Poor"],
+  ["PT022",5,"Female","Medulloblastoma","Grade I",1.76,2.88,2.12,0.61,4.9,85.3,"Favourable"],
+  ["PT023",14,"Male","DIPG","Grade IV",3.68,0.81,1.91,4.54,44.1,8.3,"Poor"],
+  ["PT024",9,"Female","Astrocytoma","Grade II",2.19,2.47,2.03,0.89,13.4,50.6,"Favourable"],
+  ["PT025",12,"Male","Ependymoma","Grade III",3.08,1.22,2.06,2.52,26.3,32.7,"Poor"],
+  ["PT026",6,"Female","Astrocytoma","Grade I",1.82,2.79,2.08,0.65,7.2,74.8,"Favourable"],
+  ["PT027",15,"Male","Glioblastoma","Grade IV",3.52,0.91,1.97,3.87,39.4,12.1,"Poor"],
+  ["PT028",8,"Female","Medulloblastoma","Grade II",2.02,2.52,2.00,0.80,11.9,48.7,"Favourable"],
+  ["PT029",10,"Male","Astrocytoma","Grade III",3.14,1.17,2.04,2.68,28.9,27.8,"Poor"],
+  ["PT030",7,"Female","Ependymoma","Grade I",1.87,2.73,2.10,0.68,6.8,76.5,"Favourable"],
+  ["PT031",13,"Male","Astrocytoma","Grade IV",3.41,0.98,1.93,3.48,37.6,15.3,"Poor"],
+  ["PT032",9,"Female","Medulloblastoma","Grade II",1.99,2.43,1.97,0.82,12.5,52.1,"Favourable"],
+  ["PT033",11,"Male","DIPG","Grade IV",3.59,0.85,2.09,4.22,43.2,10.4,"Poor"],
+  ["PT034",6,"Female","Astrocytoma","Grade I",1.80,2.85,2.11,0.63,5.6,79.1,"Favourable"],
+  ["PT035",14,"Male","Ependymoma","Grade III",3.01,1.28,2.02,2.35,25.7,30.4,"Poor"],
+  ["PT036",8,"Female","Astrocytoma","Grade II",2.13,2.58,1.99,0.83,13.1,49.3,"Favourable"],
+  ["PT037",12,"Male","Glioblastoma","Grade IV",3.44,0.94,2.07,3.66,40.1,14.8,"Poor"],
+  ["PT038",5,"Female","Medulloblastoma","Grade I",1.74,2.91,2.13,0.60,4.3,88.6,"Favourable"],
+  ["PT039",16,"Male","Astrocytoma","Grade III",3.25,1.11,2.00,2.93,31.5,26.3,"Poor"],
+  ["PT040",9,"Female","Ependymoma","Grade II",2.07,2.49,1.98,0.83,11.6,51.8,"Favourable"],
+  ["PT041",11,"Male","Astrocytoma","Grade IV",3.37,1.03,1.95,3.27,35.8,17.2,"Poor"],
+  ["PT042",7,"Female","Astrocytoma","Grade I",1.89,2.77,2.09,0.68,7.5,72.4,"Favourable"],
+  ["PT043",13,"Male","Medulloblastoma","Grade III",2.94,1.24,2.03,2.37,27.2,28.9,"Poor"],
+  ["PT044",10,"Female","DIPG","Grade IV",3.63,0.87,1.90,4.17,46.3,9.1,"Poor"],
+  ["PT045",8,"Male","Astrocytoma","Grade II",2.10,2.53,2.01,0.83,12.3,50.2,"Favourable"],
+  ["PT046",6,"Female","Ependymoma","Grade I",1.85,2.80,2.10,0.66,6.4,77.3,"Favourable"],
+  ["PT047",14,"Male","Glioblastoma","Grade IV",3.49,0.90,2.06,3.88,38.9,11.8,"Poor"],
+  ["PT048",9,"Female","Astrocytoma","Grade III",3.17,1.15,2.02,2.76,29.7,29.6,"Poor"],
+  ["PT049",12,"Male","Medulloblastoma","Grade II",1.96,2.46,1.99,0.80,14.0,47.5,"Favourable"],
+  ["PT050",5,"Female","Astrocytoma","Grade I",1.77,2.86,2.12,0.62,5.3,81.7,"Favourable"],
+  ["PT051",15,"Male","Astrocytoma","Grade IV",3.53,0.89,1.96,3.97,42.7,13.4,"Poor"],
+  ["PT052",8,"Female","Ependymoma","Grade II",2.15,2.41,2.00,0.89,13.7,48.1,"Favourable"],
+  ["PT053",11,"Male","Astrocytoma","Grade III",3.20,1.10,2.05,2.91,30.3,31.8,"Poor"],
+  ["PT054",7,"Female","Medulloblastoma","Grade I",1.83,2.84,2.11,0.64,7.0,80.9,"Favourable"],
+  ["PT055",13,"Male","Glioblastoma","Grade IV",3.46,0.93,1.94,3.72,37.8,12.6,"Poor"],
+  ["PT056",9,"Female","Astrocytoma","Grade II",2.12,2.56,1.98,0.83,11.8,53.4,"Favourable"],
+  ["PT057",16,"Male","DIPG","Grade IV",3.66,0.82,2.10,4.46,45.6,8.7,"Poor"],
+  ["PT058",6,"Female","Astrocytoma","Grade I",1.81,2.78,2.09,0.65,6.1,75.2,"Favourable"],
+  ["PT059",12,"Male","Ependymoma","Grade III",3.04,1.26,2.01,2.41,26.8,30.9,"Poor"],
+  ["PT060",8,"Female","Astrocytoma","Grade II",2.09,2.50,2.02,0.84,12.9,49.8,"Favourable"],
+  ["PT061",10,"Male","Glioblastoma","Grade IV",3.39,0.97,1.92,3.49,36.5,16.1,"Poor"],
+  ["PT062",5,"Female","Medulloblastoma","Grade I",1.75,2.89,2.13,0.61,4.7,86.4,"Favourable"],
+  ["PT063",14,"Male","Astrocytoma","Grade III",3.23,1.12,2.04,2.88,31.1,27.5,"Poor"],
+  ["PT064",9,"Female","Ependymoma","Grade II",2.06,2.47,1.97,0.83,11.4,51.1,"Favourable"],
+  ["PT065",11,"Male","Astrocytoma","Grade IV",3.55,0.86,2.08,4.13,43.8,10.7,"Poor"],
+  ["PT066",7,"Female","Astrocytoma","Grade I",1.90,2.76,2.08,0.69,8.0,73.6,"Favourable"],
+  ["PT067",13,"Male","Medulloblastoma","Grade III",2.91,1.21,2.07,2.40,28.1,29.3,"Poor"],
+  ["PT068",10,"Female","Astrocytoma","Grade II",2.17,2.45,1.99,0.89,13.6,48.5,"Favourable"],
+  ["PT069",15,"Male","Glioblastoma","Grade IV",3.43,0.96,1.95,3.57,39.7,13.9,"Poor"],
+  ["PT070",8,"Female","DIPG","Grade IV",3.61,0.84,2.12,4.30,44.9,9.4,"Poor"],
+  ["PT071",6,"Male","Astrocytoma","Grade I",1.86,2.81,2.10,0.66,6.7,78.8,"Favourable"],
+  ["PT072",12,"Female","Ependymoma","Grade III",3.09,1.23,2.03,2.51,27.4,31.4,"Poor"],
+  ["PT073",9,"Male","Astrocytoma","Grade II",2.11,2.54,2.00,0.83,12.1,50.9,"Favourable"],
+  ["PT074",11,"Female","Medulloblastoma","Grade IV",3.36,1.04,1.94,3.23,34.6,17.8,"Poor"],
+  ["PT075",5,"Male","Astrocytoma","Grade I",1.78,2.87,2.12,0.62,5.0,83.1,"Favourable"],
+  ["PT076",14,"Female","Glioblastoma","Grade IV",3.50,0.91,2.05,3.85,41.8,12.3,"Poor"],
+  ["PT077",8,"Male","Astrocytoma","Grade II",2.14,2.57,1.99,0.83,13.0,49.0,"Favourable"],
+  ["PT078",10,"Female","Ependymoma","Grade III",3.16,1.16,2.06,2.72,29.2,30.1,"Poor"],
+  ["PT079",7,"Male","Astrocytoma","Grade I",1.88,2.74,2.09,0.69,7.3,74.1,"Favourable"],
+  ["PT080",13,"Female","DIPG","Grade IV",3.64,0.83,1.91,4.39,46.8,9.0,"Poor"],
+  ["PT081",9,"Male","Medulloblastoma","Grade II",1.98,2.44,2.00,0.81,12.7,52.8,"Favourable"],
+  ["PT082",11,"Female","Astrocytoma","Grade III",3.21,1.09,2.02,2.95,30.6,28.4,"Poor"],
+  ["PT083",6,"Male","Astrocytoma","Grade I",1.83,2.82,2.11,0.65,6.3,76.9,"Favourable"],
+  ["PT084",15,"Female","Glioblastoma","Grade IV",3.47,0.92,1.98,3.77,38.3,13.1,"Poor"],
+  ["PT085",8,"Male","Ependymoma","Grade II",2.08,2.51,1.98,0.83,11.5,50.5,"Favourable"],
+  ["PT086",12,"Female","Astrocytoma","Grade III",2.95,1.25,2.04,2.36,27.0,29.8,"Poor"],
+  ["PT087",10,"Male","Astrocytoma","Grade I",1.85,2.79,2.10,0.66,7.6,77.7,"Favourable"],
+  ["PT088",14,"Female","Glioblastoma","Grade IV",3.58,0.88,1.93,4.07,42.3,11.5,"Poor"],
+  ["PT089",7,"Male","Medulloblastoma","Grade II",2.01,2.48,1.97,0.81,12.2,51.6,"Favourable"],
+  ["PT090",11,"Female","DIPG","Grade IV",3.67,0.80,2.11,4.59,47.2,8.4,"Poor"],
+  ["PT091",9,"Male","Astrocytoma","Grade I",1.82,2.83,2.12,0.64,5.8,80.2,"Favourable"],
+  ["PT092",13,"Female","Ependymoma","Grade III",3.06,1.27,2.01,2.41,26.5,31.1,"Poor"],
+  ["PT093",8,"Male","Astrocytoma","Grade II",2.16,2.42,2.01,0.89,13.3,47.7,"Favourable"],
+  ["PT094",16,"Female","Glioblastoma","Grade IV",3.40,0.99,1.92,3.43,36.9,15.7,"Poor"],
+  ["PT095",6,"Male","Medulloblastoma","Grade I",1.76,2.90,2.13,0.61,4.5,87.5,"Favourable"],
+  ["PT096",12,"Female","Astrocytoma","Grade III",3.24,1.13,2.03,2.87,31.8,26.8,"Poor"],
+  ["PT097",9,"Male","Ependymoma","Grade II",2.10,2.53,1.99,0.83,11.7,50.0,"Favourable"],
+  ["PT098",11,"Female","Astrocytoma","Grade IV",3.54,0.87,2.09,4.07,44.4,10.1,"Poor"],
+  ["PT099",7,"Male","Astrocytoma","Grade I",1.87,2.76,2.10,0.68,7.8,75.6,"Favourable"],
+  ["PT100",14,"Female","DIPG","Grade IV",3.62,0.85,1.90,4.26,45.1,9.6,"Poor"],
+  ["PT101",10,"Male","Medulloblastoma","Grade III",2.89,1.22,2.05,2.37,27.8,30.2,"Poor"],
+  ["PT102",8,"Female","Astrocytoma","Grade II",2.13,2.59,2.00,0.82,12.0,53.9,"Favourable"],
+  ["PT103",13,"Male","Glioblastoma","Grade IV",3.45,0.94,1.97,3.67,38.1,14.2,"Poor"],
+  ["PT104",6,"Female","Astrocytoma","Grade I",1.80,2.77,2.09,0.65,6.5,78.0,"Favourable"],
+  ["PT105",15,"Male","Ependymoma","Grade III",3.12,1.20,2.04,2.60,28.4,29.0,"Poor"],
+  ["PT106",9,"Female","Astrocytoma","Grade II",2.07,2.55,1.98,0.81,11.9,52.3,"Favourable"],
+  ["PT107",11,"Male","Astrocytoma","Grade IV",3.35,1.05,1.93,3.19,33.9,18.4,"Poor"],
+  ["PT108",5,"Female","Medulloblastoma","Grade I",1.73,2.92,2.14,0.59,4.1,89.2,"Favourable"],
+  ["PT109",14,"Male","DIPG","Grade IV",3.69,0.79,2.12,4.67,48.0,8.1,"Poor"],
+  ["PT110",8,"Female","Astrocytoma","Grade III",3.19,1.16,2.03,2.75,30.0,28.7,"Poor"],
+  ["PT111",12,"Male","Ependymoma","Grade II",2.04,2.46,2.01,0.83,13.8,47.2,"Favourable"],
+  ["PT112",7,"Female","Astrocytoma","Grade I",1.91,2.81,2.10,0.68,7.9,79.4,"Favourable"],
+  ["PT113",16,"Male","Glioblastoma","Grade IV",3.51,0.90,1.96,3.90,41.5,12.0,"Poor"],
+  ["PT114",9,"Female","Medulloblastoma","Grade II",2.00,2.50,1.97,0.80,12.4,53.7,"Favourable"],
+  ["PT115",11,"Male","Astrocytoma","Grade III",3.27,1.07,2.07,3.06,32.1,25.9,"Poor"],
+  ["PT116",6,"Female","Astrocytoma","Grade I",1.84,2.83,2.11,0.65,6.0,81.3,"Favourable"],
+  ["PT117",13,"Male","Ependymoma","Grade IV",3.42,0.97,1.95,3.53,37.2,16.8,"Poor"],
+  ["PT118",8,"Female","Astrocytoma","Grade II",2.18,2.43,2.00,0.90,14.1,46.4,"Favourable"],
+  ["PT119",10,"Male","DIPG","Grade IV",3.56,0.86,2.08,4.14,43.7,10.8,"Poor"],
+  ["PT120",7,"Female","Astrocytoma","Grade I",1.79,2.85,2.12,0.63,5.4,82.9,"Favourable"],
+];
+
+const COLS = ['id','age','sex','type','grade','cho','naa','cr','cho_naa','volume','survival','outcome'];
+let data = RAW.map(r => Object.fromEntries(COLS.map((c,i) => [c,r[i]])));
+
+const GRADE_COLORS = {
+  'Grade I': '#38a169', 'Grade II': '#3182ce',
+  'Grade III': '#dd6b20', 'Grade IV': '#e53e3e'
+};
+const TYPE_COLORS = ['#1F4E79','#2E75B6','#38a169','#dd6b20','#6b46c1'];
+const OUTCOME_COLORS = { 'Favourable': '#38a169', 'Poor': '#e53e3e' };
+
+let charts = {};
+
+function getFiltered() {
+  const g = document.getElementById('gradeFilter').value;
+  const t = document.getElementById('typeFilter').value;
+  const o = document.getElementById('outcomeFilter').value;
+  return data.filter(d =>
+    (g === 'All' || d.grade === g) &&
+    (t === 'All' || d.type === t) &&
+    (o === 'All' || d.outcome === o)
+  );
+}
+
+function median(arr) {
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+}
+
+function mean(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
+
+function updateKPIs(fd) {
+  document.getElementById('kpiN').textContent = fd.length;
+  document.getElementById('recordCount').textContent = fd.length + ' patients';
+  const fav = fd.filter(d=>d.outcome==='Favourable').length;
+  document.getElementById('kpiFav').textContent = Math.round(fav/fd.length*100)+'%';
+  document.getElementById('kpiSurv').textContent = median(fd.map(d=>d.survival)).toFixed(1);
+  document.getElementById('kpiVol').textContent = mean(fd.map(d=>d.volume)).toFixed(1);
+}
+
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function buildGradeChart(fd) {
+  destroyChart('grade');
+  const grades = ['Grade I','Grade II','Grade III','Grade IV'];
+  const counts = grades.map(g => fd.filter(d=>d.grade===g).length);
+  charts['grade'] = new Chart(document.getElementById('gradeChart'), {
+    type: 'bar',
+    data: { labels: grades, datasets: [{ data: counts, backgroundColor: grades.map(g=>GRADE_COLORS[g]), borderRadius: 5 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } }, responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function buildTypeChart(fd) {
+  destroyChart('type');
+  const types = ['Astrocytoma','Medulloblastoma','Ependymoma','Glioblastoma','DIPG'];
+  const counts = types.map(t => fd.filter(d=>d.type===t).length);
+  charts['type'] = new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: { labels: types, datasets: [{ data: counts, backgroundColor: TYPE_COLORS, borderWidth: 2, borderColor: 'white' }] },
+    options: { plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } }, responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function buildMetaboliteChart(fd) {
+  destroyChart('metabolite');
+  const grades = ['Grade I','Grade II','Grade III','Grade IV'];
+  const cho = grades.map(g => { const v = fd.filter(d=>d.grade===g).map(d=>d.cho); return v.length ? mean(v).toFixed(2) : 0; });
+  const naa = grades.map(g => { const v = fd.filter(d=>d.grade===g).map(d=>d.naa); return v.length ? mean(v).toFixed(2) : 0; });
+  const cr  = grades.map(g => { const v = fd.filter(d=>d.grade===g).map(d=>d.cr);  return v.length ? mean(v).toFixed(2) : 0; });
+  charts['metabolite'] = new Chart(document.getElementById('metaboliteChart'), {
+    type: 'bar',
+    data: {
+      labels: grades,
+      datasets: [
+        { label: 'Cho (ppm)', data: cho, backgroundColor: '#2E75B6', borderRadius: 3 },
+        { label: 'NAA (ppm)', data: naa, backgroundColor: '#38a169', borderRadius: 3 },
+        { label: 'Cr (ppm)',  data: cr,  backgroundColor: '#dd6b20', borderRadius: 3 },
+      ]
+    },
+    options: { plugins: { legend: { labels: { font: { size: 11 } } } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } }, responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function buildScatterChart(fd) {
+  destroyChart('scatter');
+  const byOutcome = {
+    'Favourable': fd.filter(d=>d.outcome==='Favourable').map(d=>({x:d.cho_naa, y:d.survival})),
+    'Poor': fd.filter(d=>d.outcome==='Poor').map(d=>({x:d.cho_naa, y:d.survival}))
+  };
+  charts['scatter'] = new Chart(document.getElementById('scatterChart'), {
+    type: 'scatter',
+    data: { datasets: [
+      { label: 'Favourable', data: byOutcome['Favourable'], backgroundColor: 'rgba(56,161,105,0.65)', pointRadius: 4 },
+      { label: 'Poor',       data: byOutcome['Poor'],       backgroundColor: 'rgba(229,62,62,0.65)',  pointRadius: 4 },
+    ]},
+    options: {
+      plugins: { legend: { labels: { font: { size: 11 } } } },
+      scales: {
+        x: { title: { display: true, text: 'Cho:NAA Ratio', font: { size: 10 } }, grid: { color: '#f0f4f8' } },
+        y: { title: { display: true, text: 'Survival (months)', font: { size: 10 } }, grid: { color: '#f0f4f8' } }
+      },
+      responsive: true, maintainAspectRatio: false
+    }
+  });
+}
+
+function buildSurvivalChart(fd) {
+  destroyChart('survival');
+  const grades = ['Grade I','Grade II','Grade III','Grade IV'];
+  const medians = grades.map(g => { const v = fd.filter(d=>d.grade===g).map(d=>d.survival); return v.length ? median(v).toFixed(1) : 0; });
+  charts['survival'] = new Chart(document.getElementById('survivalChart'), {
+    type: 'bar',
+    data: { labels: grades, datasets: [{ label: 'Median Survival (months)', data: medians, backgroundColor: grades.map(g=>GRADE_COLORS[g]), borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' }, title: { display: true, text: 'months', font: { size: 10 } } }, x: { grid: { display: false } } }, responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+  });
+}
+
+function buildVolumeChart(fd) {
+  destroyChart('volume');
+  const grades = ['Grade I','Grade II','Grade III','Grade IV'];
+  const means = grades.map(g => { const v = fd.filter(d=>d.grade===g).map(d=>d.volume); return v.length ? mean(v).toFixed(1) : 0; });
+  charts['volume'] = new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: { labels: grades, datasets: [{ data: means, backgroundColor: grades.map(g=>GRADE_COLORS[g]+'CC'), borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' }, title: { display: true, text: 'cm³', font: { size: 10 } } }, x: { grid: { display: false } } }, responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function buildAgeChart(fd) {
+  destroyChart('age');
+  const bins = [[0,5],[5,8],[8,11],[11,14],[14,18]];
+  const labels = bins.map(b => `${b[0]}–${b[1]}`);
+  const counts = bins.map(b => fd.filter(d => d.age >= b[0] && d.age < b[1]).length);
+  charts['age'] = new Chart(document.getElementById('ageChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data: counts, backgroundColor: '#2E75B6AA', borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' }, title: { display: true, text: 'patients', font: { size: 10 } } }, x: { grid: { display: false }, title: { display: true, text: 'Age (years)', font: { size: 10 } } } }, responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function buildTable(fd) {
+  const top = fd.slice(0, 15);
+  const gradeBadge = g => {
+    const cls = { 'Grade I':'g1','Grade II':'g2','Grade III':'g3','Grade IV':'g4' }[g] || '';
+    return `<span class="badge ${cls}">${g}</span>`;
+  };
+  const outBadge = o => `<span class="badge ${o==='Favourable'?'fav':'poor'}">${o}</span>`;
+  document.getElementById('tableWrap').innerHTML = `<table>
+    <thead><tr><th>ID</th><th>Age</th><th>Sex</th><th>Type</th><th>Grade</th><th>Cho:NAA</th><th>Volume (cm³)</th><th>Survival (mo)</th><th>Outcome</th></tr></thead>
+    <tbody>${top.map(d => `<tr><td>${d.id}</td><td>${d.age}</td><td>${d.sex}</td><td>${d.type}</td><td>${gradeBadge(d.grade)}</td><td>${d.cho_naa}</td><td>${d.volume}</td><td>${d.survival}</td><td>${outBadge(d.outcome)}</td></tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function applyFilters() {
+  const fd = getFiltered();
+  updateKPIs(fd);
+  buildGradeChart(fd);
+  buildTypeChart(fd);
+  buildMetaboliteChart(fd);
+  buildScatterChart(fd);
+  buildSurvivalChart(fd);
+  buildVolumeChart(fd);
+  buildAgeChart(fd);
+  buildTable(fd);
+}
+
+applyFilters();
+</script>
+</body>
+</html>
