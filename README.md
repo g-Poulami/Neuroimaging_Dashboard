@@ -24,5 +24,5 @@ extending computational work from my MSc research where I developed Python and
 R pipelines for clinical neuroimaging analysis.
 
 ## Live Links
-- **HTML Dashboard:** https://g-poulami.github.io/neuroimaging-dashboard
+- **HTML Dashboard:** https://g-poulami.github.io/Neuroimaging_Dashboard/
 - **Tableau Dashboard:** https://public.tableau.com/views/NeuroimagingResearchDashboard/Dashboard1
