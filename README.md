@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19707104.svg)](https://doi.org/10.5281/zenodo.19707104)
 # Paediatric Brain Tumour Neuroimaging Research Dashboard
 
 An interactive data visualisation dashboard built to explore simulated MRI/MRS 
